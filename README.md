@@ -1,8 +1,9 @@
-# PM Insurance
+# PM Insurance Demo App
 
 An iOS app I built as a solo side project. The chatbot runs on Apple
 Foundation Models with a small Korean RAG layer, and the rest of the
 app is a working multimodal UBI insurance demo built around it.
+Some features were implemented under a simulated virtual environment.
 
 ![iOS](https://img.shields.io/badge/iOS-26.4%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6.0-orange)
