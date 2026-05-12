@@ -197,7 +197,7 @@ struct PremiumSimulatorView: View {
         }
     }
 
-    /// Delta message — surcharge cases are framed as *incentive* to soften the negative read.
+    /// Surcharge cases are framed as an incentive so the message lands softer.
     private var deltaRow: some View {
         let savings = deltaWonVsSingle < 0
         let magnitude = Swift.abs(deltaWonVsSingle)

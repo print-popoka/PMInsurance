@@ -1,9 +1,8 @@
 import Foundation
 import Combine
 
-/// One entry in the chatbot's learned memory.
-/// Simplified version of MobileGPT's hierarchical app memory — Task = user query,
-/// Answer = verified ChatResponse.
+/// One entry in the chatbot cache. A query maps to a verified ChatResponse.
+/// Loosely modeled on the MobileGPT memory idea.
 struct CachedChatEntry: Sendable {
     let query: String
     let response: ChatResponse
@@ -11,10 +10,9 @@ struct CachedChatEntry: Sendable {
     var hitCount: Int
 }
 
-/// MobileGPT-style response cache.
-/// - Stores only answers that passed VeriSafe verification → avoids hallucination accumulation.
-/// - Repeat queries hit cache with 0 LLM calls → ~−68.8% cost/latency (MobileGPT figure).
-/// - HITL thumbs-down triggers `forget` → next call retries the LLM.
+/// Response cache. Only verified answers go in, so bad answers don't
+/// stack up. Repeat questions skip the LLM entirely. A thumbs-down from
+/// the user clears the entry and forces a fresh model call next time.
 @MainActor
 final class ChatMemory: ObservableObject {
     @Published private(set) var entries: [String: CachedChatEntry] = [:]

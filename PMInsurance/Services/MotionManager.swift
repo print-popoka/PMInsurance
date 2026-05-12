@@ -10,8 +10,8 @@ final class MotionManager: ObservableObject {
     @Published private(set) var crashDetected: Bool = false
     @Published private(set) var isAvailable: Bool = false
 
-    /// FNOL auto-trigger threshold — acceleration magnitude in g units.
-    /// Light shake (2g) only fires `spike`; strong shake / drop (4g+) fires `crashDetected`.
+    /// Crash threshold in g units. A light shake around 2g only triggers
+    /// `spike`. A hard shake or drop above 4g triggers `crashDetected`.
     var crashThreshold: Double = 4.0
 
     init() {

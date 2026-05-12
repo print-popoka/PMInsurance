@@ -15,10 +15,10 @@ func rfBehavior(rs: Double) -> Double {
     }
 }
 
-/// 6-cell w_modal — exposure-aligned pricing grid (option D2 final).
-/// PM-tier (3 bands) × RS safe-flag = 6 personas. Safe pool gets bigger
-/// discount with lower PM exposure; risky pool gets bigger surcharge with
-/// heavier PM use. All cells stay within ±15% of single-score UBI baseline.
+/// 6-cell pricing grid. PM tier (low, mid, high) crossed with RS safe flag.
+/// Safe riders get a bigger discount the less they ride. Risky riders get
+/// a bigger surcharge the more they ride. Every cell stays inside the
+/// 15 percent surcharge ceiling.
 func wModal(pmShare: Double, rs: Double) -> Double {
     let safe = rs >= 70
     let pmTier = pmShare < 30 ? 0 : (pmShare < 60 ? 1 : 2)
@@ -37,7 +37,7 @@ func wModal(pmShare: Double, rs: Double) -> Double {
     }
 }
 
-/// 6-persona label for UI display.
+/// Persona label for the UI.
 func personaName(pmShare: Double, rs: Double) -> String {
     let safe = rs >= 70
     let pmTier = pmShare < 30 ? 0 : (pmShare < 60 ? 1 : 2)
@@ -64,13 +64,11 @@ func classifyZone(pmShare: Double, rs: Double) -> Zone {
 
 func calculatePremium(pmShare: Double, rs: Double) -> Int {
     let raw = Premium.basePure * Premium.loading * rfBehavior(rs: rs) * wModal(pmShare: pmShare, rs: rs)
-    // Standard arithmetic rounding (Math.round equivalent). Two corrections
-    // are required to match the Appendix §3.4 verification table exactly:
-    //   1. .toNearestOrAwayFromZero — Swift's default .rounded() uses banker's
-    //      rounding (32,062.5 → 32,062), but the report uses Math.round style.
-    //   2. + 1e-9 epsilon — IEEE-754 representation makes 47,437.5 be stored
-    //      as 47,437.499…, which would round down under any half-up rule.
-    //      One-nano-won bias preserves the theoretical value across all cells.
+    // Match the verification table exactly. Two fixes needed.
+    // Swift's default `.rounded()` is banker's rounding, so 32062.5 goes to
+    // 32062 instead of 32063. Use the away-from-zero rule.
+    // IEEE-754 also stores 47437.5 as 47437.499..., which would still round
+    // down. The 1e-9 nudge fixes that.
     return Int((raw + 1e-9).rounded(.toNearestOrAwayFromZero))
 }
 

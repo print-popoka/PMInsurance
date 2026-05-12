@@ -43,7 +43,7 @@ func matchFAQ(query: String) -> FAQEntry? {
     }
 }
 
-/// MobiBench multi-path — a single query may span multiple clauses, return all matches.
+/// Returns every clause that matches. Used when one question covers several.
 func matchFAQAll(query: String) -> [FAQEntry] {
     let q = query.lowercased()
     return faqEntries.filter { entry in

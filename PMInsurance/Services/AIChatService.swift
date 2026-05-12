@@ -3,13 +3,14 @@ import Combine
 import FoundationModels
 import NaturalLanguage
 
-/// Unified response schema for the chatbot + AI advisor.
-/// The `@Generable` macro enforces the schema directly on SystemLanguageModel —
-/// the first hallucination defense layer.
+/// Schema for both the chatbot and the advisor. The `@Generable` macro
+/// forces the model output into this struct, which acts as the first
+/// guard against hallucination.
 ///
-/// One ChatResponse handles two modes:
-/// - Q&A:      intent="chat", answer + article + relatedArticles (MobiBench multi-path)
-/// - Advisor:  intent="navigate"/"simulate"/"trigger", targetScreen + sliders + narration
+/// Two modes share the same shape.
+/// Q&A sets intent to "chat" and fills answer, article, and relatedArticles.
+/// Advisor sets intent to "navigate", "simulate", or "trigger" and fills
+/// targetScreen, sliders, and narration.
 @Generable
 struct ChatResponse: Sendable {
     @Guide(description: "사용자 질문이 PM 보험 약관 12개 FAQ 범위 내인지 (true: 약관 내, false: 범위 외)")
@@ -40,7 +41,7 @@ struct ChatResponse: Sendable {
     let narration: String
 }
 
-/// VeriSafe Horn-clause verification result.
+/// Result of running an answer through the Horn-clause verifier.
 enum VerificationResult: Sendable {
     case passed
     case failed(reason: String)
@@ -48,18 +49,18 @@ enum VerificationResult: Sendable {
     var isPassed: Bool { if case .passed = self { return true } else { return false } }
 }
 
-/// On-device chatbot + advisor backed by iOS 26 Foundation Models.
-/// Integrates VeriSafe verifier + MobiBench multi-path + MobileGPT advisor mode.
+/// On-device chatbot and advisor backed by Foundation Models.
+/// Wires together the RAG retriever, the verifier, and the advisor mode.
 @MainActor
 final class AIChatService: ObservableObject {
     @Published private(set) var availability: SystemLanguageModel.Availability
     private var session: LanguageModelSession?
 
-    /// RAG retriever — cosine similarity over NLEmbedding word vectors.
-    /// Query → top-k clauses → dynamically injected into the LLM prompt.
+    /// Cosine similarity retriever over the NLEmbedding word vectors.
+    /// Picks the top-k clauses for each query and feeds them into the prompt.
     let retriever = RAGRetriever()
 
-    /// Set of valid clause IDs across the 12 FAQ entries — VeriSafe rule R1.
+    /// The 12 clause IDs the verifier accepts (rule R1).
     static let validArticles: Set<String> = Set(faqEntries.map(\.article))
 
     init() {
@@ -70,7 +71,7 @@ final class AIChatService: ObservableObject {
         }
     }
 
-    /// Most recent retrieval result — surfaced to UI for RAG status chip.
+    /// Most recent retrieval. The UI uses this for the RAG status chip.
     @Published private(set) var lastRetrieval: [RAGRetriever.Hit] = []
 
     var isReady: Bool {
@@ -88,21 +89,21 @@ final class AIChatService: ObservableObject {
         }
     }
 
-    /// Query → RAG retrieval → structured response. Returns nil on failure (caller falls back).
-    /// 1) Cosine similarity over NLEmbedding picks top-3 clauses.
-    /// 2) Only the retrieved clauses are injected into the LLM prompt (true RAG).
-    /// 3) Foundation Models generates a typed ChatResponse from RAG context + query.
+    /// Runs a query through the retrieval, augmentation, generation flow.
+    /// Cosine search picks the top three clauses. Only those go into the
+    /// prompt. The model returns a typed ChatResponse. Returns nil on
+    /// failure so the caller can fall back to keyword matching.
     func respond(to query: String) async -> ChatResponse? {
         guard let session else { return nil }
 
-        // 1) Retrieval — top-3 relevant clauses
+        // Retrieval. Pull the three most relevant clauses.
         let hits = retriever.retrieve(query: query, k: 3)
         lastRetrieval = hits
 
-        // 2) Augmentation — inject only the retrieved clauses
+        // Augmentation. Inject only what retrieval gave us.
         let augmentedPrompt = Self.makePrompt(query: query, hits: hits)
 
-        // 3) Generation — invoke Foundation Models on-device
+        // Generation. Foundation Models, on device.
         do {
             let response = try await session.respond(to: augmentedPrompt, generating: ChatResponse.self)
             return response.content
@@ -130,9 +131,9 @@ final class AIChatService: ObservableObject {
         """
     }
 
-    // MARK: - VeriSafe verification (Horn-clause)
+    // MARK: - Horn-clause verification
 
-    /// Horn-clause logic verification — encodes the 3 hallucination-prevention principles.
+    /// Encodes the three hallucination-prevention rules as Horn-clause checks.
     func verify(_ response: ChatResponse) -> VerificationResult {
         // R4: inScope=false → article must be empty or invalid
         if !response.inScope {
@@ -172,14 +173,14 @@ final class AIChatService: ObservableObject {
         faqEntries.first { $0.article == article }
     }
 
-    // MARK: - MobiBench multi-path FAQ matching
+    // MARK: - Keyword fallback
 
-    /// Keyword fallback — single best match.
+    /// Single best keyword match.
     static func keywordMatch(query: String) -> FAQEntry? {
         matchFAQ(query: query)
     }
 
-    /// MobiBench multi-path — all matching clauses.
+    /// All clauses that match. Used when a question spans more than one.
     static func keywordMatchAll(query: String) -> [FAQEntry] {
         matchFAQAll(query: query)
     }
@@ -231,9 +232,9 @@ final class AIChatService: ObservableObject {
 
 // MARK: - RAG Retriever
 
-/// Korean semantic search retriever backed by NLEmbedding.
-/// Pre-embeds the 12 FAQ clauses, then maps each query into the same space
-/// for top-k cosine retrieval. Zero external dependencies (uses Apple's NaturalLanguage).
+/// Korean semantic search backed by NLEmbedding.
+/// The 12 clauses are embedded once at startup. Each query gets mapped
+/// into the same vector space and matched by cosine similarity.
 final class RAGRetriever: @unchecked Sendable {
     struct Hit: Sendable {
         let entry: FAQEntry
@@ -252,7 +253,7 @@ final class RAGRetriever: @unchecked Sendable {
             return
         }
 
-        // Pre-embed each FAQ once at startup
+        // Embed each clause once at startup.
         self.faqVectors = faqEntries.compactMap { entry in
             let text = (entry.keywords + [entry.answer]).joined(separator: " ")
             guard let vec = Self.sentenceVector(for: text, embedding: embedding) else { return nil }
@@ -263,7 +264,7 @@ final class RAGRetriever: @unchecked Sendable {
     var isReady: Bool { embedding != nil && !faqVectors.isEmpty }
     var indexedCount: Int { faqVectors.count }
 
-    /// Top-k cosine retrieval (anything below `threshold` is dropped).
+    /// Returns the top-k matches. Anything below `threshold` is dropped.
     func retrieve(query: String, k: Int = 3, threshold: Double = 0.25) -> [Hit] {
         guard let embedding else { return [] }
         guard let queryVec = Self.sentenceVector(for: query, embedding: embedding) else { return [] }
@@ -278,8 +279,8 @@ final class RAGRetriever: @unchecked Sendable {
 
     // MARK: - Vector math
 
-    /// Sentence vector = mean of in-vocabulary word vectors.
-    /// NLTokenizer tokenizes Korean text → averaged over vectors that exist in the embedding.
+    /// Sentence vector is the mean of word vectors that exist in the embedding.
+    /// NLTokenizer handles the Korean word boundaries.
     private static func sentenceVector(for text: String, embedding: NLEmbedding) -> [Double]? {
         let tokenizer = NLTokenizer(unit: .word)
         tokenizer.string = text

@@ -13,8 +13,9 @@ struct DailyRide: Identifiable, Sendable {
     let sidewalkAlerts: Int
 }
 
-/// PM ride seed — 7-day distribution + yesterday's path + sidewalk hotspots
-/// for the live demo. Same schema can later be filled from a real PM API.
+/// PM ride seed for the live demo. Holds the 7-day distribution,
+/// yesterday's path, and the sidewalk hotspots. The schema can later
+/// be populated from a real PM API.
 enum UserRideHistory {
 
     static let last7Days: [DailyRide] = [
@@ -65,13 +66,13 @@ enum UserRideHistory {
         .init(latitude: 37.3232, longitude: 127.1090),  // Jukjeon station
     ]
 
-    /// Sidewalk-entry hotspots — synthetic 2 points along the path.
+    /// Sidewalk-entry hotspots. Two synthetic points along the path.
     static let sidewalkHotspots: [SidewalkHotspot] = [
         .init(id: 0, coordinate: .init(latitude: 37.3227, longitude: 127.1196), reason: "보도 진입 12초"),
         .init(id: 1, coordinate: .init(latitude: 37.3231, longitude: 127.1130), reason: "보도 진입 8초"),
     ]
 
-    /// Initial map region — center of the path.
+    /// Initial map center.
     static let mapCenter: CLLocationCoordinate2D = .init(latitude: 37.3226, longitude: 127.1175)
     static let mapSpanDegrees: Double = 0.006
 }

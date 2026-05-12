@@ -2,8 +2,8 @@ import SwiftUI
 import Foundation
 import Combine
 
-/// Global app state — navigation, all sliders, trigger signals, advisor mode.
-/// The AI advisor (Plan X') drives this state directly to run the automated demo.
+/// Shared app state. Holds navigation, slider values, trigger signals,
+/// and the advisor flag. The advisor writes here to run the automated demo.
 enum AppScreen: Hashable, Sendable {
     case sim, coord, behavior, chat, fnol
 }
