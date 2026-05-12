@@ -1,0 +1,28 @@
+# Xcode build artifacts
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Xcode project user-specific files
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Packages/
+Package.pins
+Package.resolved
+
+# macOS system files
+.DS_Store
+
+# iOS / Simulator artifacts
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Misc
+*.log
+*.tmp
